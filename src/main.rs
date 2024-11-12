@@ -6,7 +6,7 @@ use serde::{Serialize, Deserialize};
 use tokio::{fs::File, io::AsyncWriteExt};
 
 #[derive(Parser, Debug)]
-#[command(version = "0.1.0", about = "pulls lrc files for songs in the current directory, try it on your music collection", long_about = None)]
+#[command(version = env!("CARGO_PKG_VERSION"), about = "pulls lrc files for songs in the current directory, try it on your music collection", long_about = None)]
 pub struct CliConfig {
     #[arg(short = 'u', long = "lrclib-url", default_value = "https://lrclib.net")]
     pub lrclib_url: String,
@@ -14,9 +14,19 @@ pub struct CliConfig {
     pub hidden: bool,
 }
 
+static DEFAULT_USER_AGENT: &str = concat!(
+    env!("CARGO_PKG_NAME"),
+    "/",
+    env!("CARGO_PKG_VERSION"),
+    " (",
+    // github repo
+    env!("CARGO_PKG_HOMEPAGE"),
+    ")"
+);
+
 pub struct LrcLibClient {
     pub url: String,
-    pub agent: String,
+    pub client: reqwest::Client,
 }
 
 pub struct LrclibQuery {
@@ -59,9 +69,11 @@ pub struct LrclibItem {
 
 impl LrcLibClient {
     pub fn new(url: &str) -> Self {
+        let mut headers = reqwest::header::HeaderMap::new();
+        headers.insert("Lrclib-Client", DEFAULT_USER_AGENT.parse().unwrap());
         Self {
             url: "https://lrclib.net".to_string(),
-            agent: "Lrcsync/0.1.0 (https://github.com/javaarchive/lrcsync)".to_string()
+            client: reqwest::Client::builder().default_headers(headers).user_agent(DEFAULT_USER_AGENT).build().expect("Failed to create reqwest client"),
         }
     }
 
@@ -70,14 +82,9 @@ impl LrcLibClient {
     }
 
     pub async fn get(&self, query: &LrclibQuery) -> anyhow::Result<Option<LrclibItem>> {
-        let mut headers = reqwest::header::HeaderMap::new();
-        headers.insert("User-Agent", self.agent.parse().unwrap());
-        let client = reqwest::Client::builder()
-            .default_headers(headers)
-            .build()
-            .unwrap();
+        
         let url = format!("{}/api/get?{}" ,self.url, query.to_query_string());
-        let response = client.get(url).send().await?;
+        let response = self.client.get(url).send().await?;
         if response.status().is_success() {
             let body = response.text().await?;
             match serde_json::from_str::<LrclibItem>(&body) {
@@ -100,6 +107,8 @@ impl LrcLibClient {
 #[tokio::main]
 async fn main() {
     let config = CliConfig::parse();
+    let mut client = LrcLibClient::new(&config.lrclib_url);
+    client.set_url(&config.lrclib_url);
     for result in WalkBuilder::new(".").hidden(config.hidden).add_custom_ignore_filename(".lrcsyncignore").build() {
         match result {
             Ok(entry) => {
@@ -138,7 +147,7 @@ async fn main() {
                             album_name: album_name.clone(),
                             duration: duration,
                         };
-                        match LrcLibClient::new(&config.lrclib_url).get(&lrc_query).await {
+                        match client.get(&lrc_query).await {
                             Ok(Some(lrc_item)) => {
                                 if let Some(synced_lyrics) = &lrc_item.syncedLyrics {
                                     println!("Found synced lrc for {}", entry.path().display());
