@@ -1,0 +1,2 @@
+# lrcsync
+ lrclib.net client
