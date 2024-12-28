@@ -120,6 +120,12 @@ jobs:
         - os: ubuntu-latest
           TARGET: x86_64-unknown-linux-gnu
 
+        - os: ubuntu-latest
+          TARGET: i686-unknown-linux-musl
+          
+        - os: ubuntu-latest
+          TARGET: x86_64-unknown-linux-musl
+
         - os: windows-latest
           TARGET: x86_64-pc-windows-msvc
           EXTENSION: .exe
@@ -145,14 +151,6 @@ jobs:
       if: ${{ !contains(matrix.TARGET, 'linux') }}
       run: |
         cargo install cross
-    
-    #- name: Nuke bugged gcc version
-    #  if: ${{ contains(matrix.TARGET, 'linux') }}
-    #  run: |
-    #    sudo apt-get remove gcc-9 || echo No gcc 9 to remove
-    #    sudo apt-get remove gcc-10 || echo No gcc 10 to remove
-    #    echo Checking cc version
-    #    cc --version
 
     - name: Build
       run: |
