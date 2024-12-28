@@ -14,7 +14,7 @@ audiotags = "0.5.0"
 clap = { version = "4.5.20", features = ["derive"] }
 ignore = "0.4.23"
 mime_guess = "2.0.5"
-reqwest = { version = "0.12.9", features = ["http2", "gzip", "deflate" ] }
+reqwest = { version = "0.12.9", features = ["http2", "gzip", "deflate", "native-tls-vendored" ] }
 serde = { version = "1.0.215", features = ["derive"] }
 serde_json = "1.0.132"
 tokio = { version = "1", features = ["full"] }
