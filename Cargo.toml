@@ -1,6 +1,6 @@
 [package]
 name = "lrcsync"
-version = "0.1.1"
+version = "0.2.0"
 edition = "2021"
 description = "a simple tool to sync lrc files from lrclib.net"
 license = "GPL-3.0"

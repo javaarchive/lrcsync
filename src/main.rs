@@ -12,6 +12,10 @@ pub struct CliConfig {
     pub lrclib_url: String,
     #[arg(short = 'a', long = "hidden", default_value_t = false)]
     pub hidden: bool,
+    #[arg(short = 'f', long = "force", default_value_t = false, help = "overwrite existing lrc files")]
+    pub force: bool,
+    #[arg(short = 'i', long = "ignore", value_parser, num_args = 1, help = "ignore the follow properties when searching lrclib by not sending them, comma seperated")]
+    pub ignore: Vec<String>
 }
 
 static DEFAULT_USER_AGENT: &str = concat!(
@@ -37,6 +41,7 @@ pub struct LrclibQuery {
 }
 
 impl LrclibQuery {
+    // old method
     pub fn to_query_string(&self) -> String {
         let mut query = String::new();
         query.push_str("track_name=");
@@ -52,6 +57,27 @@ impl LrclibQuery {
             query.push_str(&duration.to_string());
         }
         query
+    }
+
+    pub fn to_query(&self) -> Vec<(String, String)> {
+        let mut query = Vec::new();
+        query.push(("track_name".to_string(), self.track_name.clone()));
+        query.push(("artist_name".to_string(), self.artist_name.clone()));
+        if let Some(album_name) = &self.album_name {
+            query.push(("album_name".to_string(), album_name.clone()));
+        }
+        if let Some(duration) = &self.duration {
+            query.push(("duration".to_string(), duration.to_string()));
+        }
+        query
+    }
+
+    pub fn remove_duration(&mut self) {
+        self.duration = None;
+    }
+
+    pub fn remove_album_name(&mut self) {
+        self.album_name = None;
     }
 }
 
@@ -82,9 +108,9 @@ impl LrcLibClient {
     }
 
     pub async fn get(&self, query: &LrclibQuery) -> anyhow::Result<Option<LrclibItem>> {
-        
-        let url = format!("{}/api/get?{}" ,self.url, query.to_query_string());
-        let response = self.client.get(url).send().await?;
+        let url = format!("{}/api/get" ,self.url);
+        let request_builder = self.client.get(url).query(&query.to_query());
+        let response = request_builder.send().await?;
         if response.status().is_success() {
             let body = response.text().await?;
             match serde_json::from_str::<LrclibItem>(&body) {
@@ -122,6 +148,11 @@ async fn main() {
                 if !is_audio {
                     continue;
                 }
+                let has_existing_lrc = entry.path().with_extension("lrc").exists();
+                if has_existing_lrc && !config.force {
+                    println!("Skipping {}: lrc file already exists", entry.path().display());
+                    continue;
+                }
                 // read file
                 match Tag::new().read_from_path(entry.path()) {
                     Ok(tag) => {
@@ -141,12 +172,18 @@ async fn main() {
                             Some(duration) => Some(duration as f32),
                             None => None,
                         };
-                        let lrc_query = LrclibQuery {
+                        let mut lrc_query = LrclibQuery {
                             track_name: track_name.clone(),
                             artist_name: artist_name.clone(),
                             album_name: album_name.clone(),
                             duration: duration,
                         };
+                        if config.ignore.contains(&"duration".to_string()) {
+                            lrc_query.remove_duration();
+                        }
+                        if config.ignore.contains(&"album_name".to_string()) {
+                            lrc_query.remove_album_name();
+                        }
                         match client.get(&lrc_query).await {
                             Ok(Some(lrc_item)) => {
                                 if let Some(synced_lyrics) = &lrc_item.syncedLyrics {
