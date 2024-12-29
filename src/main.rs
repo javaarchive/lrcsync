@@ -284,15 +284,20 @@ async fn main() {
                                                         }).collect();
                                                     }
                                                 }
+
+                                                if canidates.len() > 0 {
                                                 
-                                                println!("Searched lrc (found {}secs vs actual {}secs out of {} filtered results) for {}",canidates[0].duration,lrc_query.duration.unwrap_or(-1.0), canidates.len(), entry.path().display());  
-                                                // write to file with extension changed to .lrc
-                                                // TODO: manual duration tolerance?
-                                                match write_lrc_for_file(&entry, &canidates[0].syncedLyrics.as_ref().unwrap(), &config).await {
-                                                    Ok(_) => {},
-                                                    Err(err) => {
-                                                        println!("Error in saving lrc {}: {}",entry.path().display(), err);
+                                                    println!("Searched lrc (found {}secs vs actual {}secs out of {} filtered results) for {}",canidates[0].duration,lrc_query.duration.unwrap_or(-1.0), canidates.len(), entry.path().display());  
+                                                    // write to file with extension changed to .lrc
+                                                    // TODO: manual duration tolerance?
+                                                    match write_lrc_for_file(&entry, &canidates[0].syncedLyrics.as_ref().unwrap(), &config).await {
+                                                        Ok(_) => {},
+                                                        Err(err) => {
+                                                            println!("Error in saving lrc {}: {}",entry.path().display(), err);
+                                                        }
                                                     }
+                                                } else {
+                                                    println!("Did not find lrc for (no results after filtering) {}",entry.path().display());
                                                 }
                                             }
                                         },
