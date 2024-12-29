@@ -275,6 +275,10 @@ async fn main() {
                                                         let b_delta = b_duration - duration;
                                                         return a_delta.abs().partial_cmp(&b_delta.abs()).unwrap();
                                                     }); 
+
+                                                    canidates = canidates.into_iter().filter(|item| {
+                                                        return item.syncedLyrics.is_some() && item.syncedLyrics.as_ref().unwrap().len() > 0;
+                                                    }).collect();
                                                 
                                                     if config.tolerance > 0.0 {
                                                         canidates = canidates.into_iter().filter(|item| {
